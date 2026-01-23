@@ -1,405 +1,443 @@
-import streamlit as st
-import pandas as pd
-import datetime
-from io import BytesIO
-
-# --- 1. KONFIGURASI HALAMAN & CSS ---
-st.set_page_config(
-    page_title="Admin Guru - UPT SMPN 1 Watang Pulu",
-    page_icon="🏫",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# Custom CSS untuk tampilan Warna-warni dan Menarik
-st.markdown("""
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Administrasi Guru - UPT SMPN 1 Watang Pulu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-    /* Background utama */
-    .stApp {
-        background-color: #f4f7f6;
-    }
-    /* Header Style */
-    h1 {
-        color: #1e3799;
-        text-align: center;
-        font-family: 'Segoe UI', sans-serif;
-        text-transform: uppercase;
-        font-weight: 800;
-        text-shadow: 2px 2px 0px #a4b0be;
-    }
-    h2 {
-        color: #e58e26;
-        border-bottom: 2px solid #e58e26;
-        padding-bottom: 10px;
-    }
-    h3 {
-        color: #0c2461;
-    }
-    /* Tombol */
-    .stButton>button {
-        background-color: #38ada9;
-        color: white;
-        border-radius: 8px;
-        font-weight: bold;
-        border: none;
-        transition: 0.3s;
-    }
-    .stButton>button:hover {
-        background-color: #079992;
-        transform: scale(1.02);
-    }
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-right: 1px solid #dcdde1;
-    }
-    /* Kotak Info */
-    .info-box {
-        padding: 15px;
-        background-color: #dff9fb;
-        border-left: 5px solid #22a6b3;
-        border-radius: 5px;
-        color: #130f40;
-        margin-bottom: 15px;
-    }
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+        body { font-family: 'Poppins', sans-serif; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white; padding: 0; }
+            .container { max-width: 100%; width: 100%; }
+            table { font-size: 10pt; }
+        }
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
-""", unsafe_allow_html=True)
+</head>
+<body class="bg-slate-50 min-h-screen">
 
-# --- 2. INISIALISASI STATE (MEMORY SEMENTARA) ---
-if 'data_guru' not in st.session_state:
-    st.session_state['data_guru'] = {'Nama': '', 'NIP': '', 'Mapel': ''}
-if 'kelas_list' not in st.session_state:
-    st.session_state['kelas_list'] = [] 
-if 'siswa_data' not in st.session_state:
-    st.session_state['siswa_data'] = {} 
-if 'jurnal_guru' not in st.session_state:
-    st.session_state['jurnal_guru'] = pd.DataFrame(columns=['No', 'Tanggal', 'Kelas', 'Tujuan Pembelajaran', 'Keterangan'])
+    <header class="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white p-6 shadow-xl no-print">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
+            <div class="text-center md:text-left mb-4 md:mb-0">
+                <h1 class="text-3xl font-extrabold tracking-tight">UPT SMP Negeri 1 Watang Pulu</h1>
+                <p class="text-blue-100 italic">"Mencerdaskan Bangsa dengan Teknologi"</p>
+            </div>
+            <div class="bg-white/20 p-3 rounded-xl backdrop-blur-md border border-white/30 text-center">
+                <span id="currentDate" class="font-semibold"></span>
+            </div>
+        </div>
+    </header>
 
-# --- 3. JUDUL ---
-st.markdown("<h1>🏫 UPT SMP NEGERI 1 WATANG PULU</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; font-size: 1.2em; color: #535c68;'>Aplikasi Administrasi Guru & Rekap Nilai Terpadu</p>", unsafe_allow_html=True)
-st.divider()
+    <nav class="container mx-auto mt-6 px-4 no-print">
+        <div class="flex flex-wrap gap-2 justify-center">
+            <button onclick="switchTab('tab-profil')" class="nav-btn bg-white px-4 py-2 rounded-lg shadow-sm border-b-4 border-blue-500 hover:bg-blue-50 transition-all font-semibold"><i class="fas fa-user-tie mr-2 text-blue-500"></i>Profil & Kelas</button>
+            <button onclick="switchTab('tab-siswa')" class="nav-btn bg-white px-4 py-2 rounded-lg shadow-sm border-b-4 border-emerald-500 hover:bg-emerald-50 transition-all font-semibold"><i class="fas fa-users mr-2 text-emerald-500"></i>Data Siswa</button>
+            <button onclick="switchTab('tab-jurnal')" class="nav-btn bg-white px-4 py-2 rounded-lg shadow-sm border-b-4 border-purple-500 hover:bg-purple-50 transition-all font-semibold"><i class="fas fa-book mr-2 text-purple-500"></i>Jurnal</button>
+            <button onclick="switchTab('tab-absensi')" class="nav-btn bg-white px-4 py-2 rounded-lg shadow-sm border-b-4 border-amber-500 hover:bg-amber-50 transition-all font-semibold"><i class="fas fa-calendar-check mr-2 text-amber-500"></i>Absensi</button>
+            <button onclick="switchTab('tab-nilai')" class="nav-btn bg-white px-4 py-2 rounded-lg shadow-sm border-b-4 border-rose-500 hover:bg-rose-50 transition-all font-semibold"><i class="fas fa-star mr-2 text-rose-500"></i>Nilai</button>
+            <button onclick="preparePrint()" class="bg-slate-800 text-white px-4 py-2 rounded-lg shadow-md hover:bg-slate-900 transition-all font-semibold"><i class="fas fa-print mr-2"></i>Cetak Laporan</button>
+        </div>
+    </nav>
 
-# --- 4. SIDEBAR MENU ---
-with st.sidebar:
-    st.markdown("### 🧭 MENU UTAMA")
-    menu = st.radio("", 
-        ["🏠 Identitas Guru", 
-         "👥 Data Siswa & Kelas", 
-         "📘 Jurnal Mengajar", 
-         "📅 Daftar Hadir", 
-         "📊 Daftar Nilai", 
-         "🖨️ Cetak Laporan"],
-        index=0
-    )
-    st.markdown("---")
-    st.caption("Developed for UPT SMPN 1 Watang Pulu")
-
-# --- 5. LOGIKA MENU ---
-
-# === MENU 1: IDENTITAS ===
-if menu == "🏠 Identitas Guru":
-    st.header("👤 Profil Pengajar")
-    st.markdown('<div class="info-box">Silahkan lengkapi data diri Anda sebelum memulai administrasi.</div>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        nama = st.text_input("Nama Lengkap", st.session_state['data_guru']['Nama'])
-        nip = st.text_input("NIP / NUPTK", st.session_state['data_guru']['NIP'])
-    with col2:
-        mapel = st.text_input("Mata Pelajaran", st.session_state['data_guru']['Mapel'])
-        tahun = st.text_input("Tahun Pelajaran", "2024/2025")
-    
-    if st.button("💾 Simpan Identitas"):
-        st.session_state['data_guru'] = {'Nama': nama, 'NIP': nip, 'Mapel': mapel}
-        st.toast('Identitas berhasil disimpan!', icon='✅')
-
-# === MENU 2: SISWA & KELAS ===
-elif menu == "👥 Data Siswa & Kelas":
-    st.header("📂 Kelola Kelas & Siswa")
-    
-    # --- Bagian A: Buat Kelas ---
-    with st.expander("➕ Tambah Kelas Baru", expanded=False):
-        c1, c2 = st.columns([3, 1])
-        new_class = c1.text_input("Nama Kelas (Contoh: 7A)")
-        if c2.button("Buat Kelas"):
-            if new_class and new_class not in st.session_state['kelas_list']:
-                st.session_state['kelas_list'].append(new_class)
-                st.session_state['kelas_list'].sort()
-                # Init empty dataframe
-                st.session_state['siswa_data'][new_class] = pd.DataFrame(columns=['Nama Siswa'])
-                st.toast(f"Kelas {new_class} berhasil dibuat!", icon='🎉')
-                st.rerun()
-
-    # --- Bagian B: Kelola Siswa ---
-    if st.session_state['kelas_list']:
-        selected_class = st.selectbox("Pilih Kelas untuk Diedit:", st.session_state['kelas_list'])
-        df_current = st.session_state['siswa_data'][selected_class]
+    <main class="container mx-auto p-4 md:p-6">
         
-        st.info(f"Mengelola Kelas: **{selected_class}** | Jumlah Siswa: **{len(df_current)}/35**")
+        <section id="tab-profil" class="tab-content active space-y-6 animate-fade-in">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-2xl shadow-lg border-l-8 border-blue-500">
+                    <h2 class="text-xl font-bold mb-4 text-blue-700">Identitas Guru & Mapel</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600">Nama Guru</label>
+                            <input type="text" id="guru-nama" onchange="saveData()" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" placeholder="Contoh: Budi Santoso, S.Pd">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600">Mata Pelajaran</label>
+                            <input type="text" id="guru-mapel" onchange="saveData()" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" placeholder="Contoh: Matematika">
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-lg border-l-8 border-indigo-500">
+                    <h2 class="text-xl font-bold mb-4 text-indigo-700">Manajemen Kelas</h2>
+                    <div class="flex gap-2 mb-4">
+                        <input type="text" id="input-kelas" class="flex-1 p-2 border rounded-lg" placeholder="Nama Kelas Baru (Contoh: VII-A)">
+                        <button onclick="tambahKelas()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">Tambah</button>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-600">Pilih Kelas Aktif:</label>
+                        <select id="select-kelas" onchange="gantiKelasActive(this.value)" class="w-full p-2 border-2 border-indigo-100 rounded-lg font-bold text-indigo-700 outline-none"></select>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-        tab_input, tab_import, tab_edit = st.tabs(["📝 Input Manual", "📤 Import Excel/CSV", "🗑️ Hapus/Edit Data"])
-
-        # TAB 1: Input Manual
-        with tab_input:
-            nama_baru = st.text_input("Nama Siswa Baru:")
-            if st.button("Tambahkan Siswa"):
-                if len(df_current) < 35:
-                    if nama_baru:
-                        new_row = pd.DataFrame({'Nama Siswa': [nama_baru]})
-                        st.session_state['siswa_data'][selected_class] = pd.concat([df_current, new_row], ignore_index=True)
-                        st.toast("Siswa berhasil ditambahkan!", icon='✅')
-                        st.rerun()
-                else:
-                    st.error("Gagal: Kelas sudah penuh (Maks 35 Siswa).")
-
-        # TAB 2: Import
-        with tab_import:
-            st.markdown("Upload file **Excel** atau **CSV** yang memiliki header kolom **'Nama'**.")
-            uploaded_file = st.file_uploader("Pilih File", type=['xlsx', 'csv'])
+        <section id="tab-siswa" class="tab-content bg-white p-6 rounded-2xl shadow-lg border-t-8 border-emerald-500">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                <h2 class="text-2xl font-bold text-emerald-700">Daftar Siswa (Maks 35)</h2>
+                <div class="flex flex-wrap gap-2">
+                    <label class="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-lg cursor-pointer hover:bg-emerald-200 font-semibold transition">
+                        <i class="fas fa-file-import mr-2"></i>Import CSV (Nama)
+                        <input type="file" id="csv-file" accept=".csv" class="hidden" onchange="importCSV(this)">
+                    </label>
+                    <button onclick="hapusSemuaSiswa()" class="bg-rose-100 text-rose-600 px-4 py-2 rounded-lg hover:bg-rose-200 font-semibold"><i class="fas fa-trash-alt mr-2"></i>Kosongkan</button>
+                </div>
+            </div>
             
-            if uploaded_file:
-                try:
-                    if uploaded_file.name.endswith('.csv'):
-                        df_upload = pd.read_csv(uploaded_file)
-                    else:
-                        df_upload = pd.read_excel(uploaded_file)
-                    
-                    if 'Nama' in df_upload.columns:
-                        names = df_upload['Nama'].dropna().tolist()
-                        sisa_slot = 35 - len(df_current)
-                        
-                        if sisa_slot > 0:
-                            to_add = names[:sisa_slot]
-                            new_rows = pd.DataFrame({'Nama Siswa': to_add})
-                            st.session_state['siswa_data'][selected_class] = pd.concat([df_current, new_rows], ignore_index=True)
-                            st.toast(f"Berhasil import {len(to_add)} siswa!", icon='✅')
-                            if len(names) > sisa_slot:
-                                st.warning(f"Hanya {sisa_slot} siswa yang masuk karena batas maksimal 35.")
-                            st.rerun()
-                        else:
-                            st.error("Kelas sudah penuh.")
-                    else:
-                        st.error("Tidak ditemukan kolom 'Nama' pada file.")
-                except Exception as e:
-                    st.error(f"Terjadi kesalahan file: {e}")
+            <div class="flex gap-2 mb-6">
+                <input type="text" id="input-nama-siswa" class="flex-1 p-2 border rounded-lg" placeholder="Masukkan Nama Siswa Manual">
+                <button onclick="tambahSiswaManual()" class="bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 font-bold">Tambah</button>
+            </div>
 
-        # TAB 3: Edit / Hapus (Fitur Data Editor)
-        with tab_edit:
-            st.markdown("Anda dapat **mengedit nama** atau **menghapus siswa** (pilih baris lalu tekan tombol delete/hapus di keyboard atau gunakan fitur hapus bawaan tabel).")
-            
-            edited_df = st.data_editor(
-                df_current,
-                num_rows="dynamic", # Mengizinkan tambah/hapus baris langsung di tabel
-                key=f"editor_{selected_class}",
-                use_container_width=True
-            )
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse">
+                    <thead class="bg-emerald-50">
+                        <tr>
+                            <th class="border p-3 text-left w-16">No</th>
+                            <th class="border p-3 text-left">Nama Lengkap</th>
+                            <th class="border p-3 text-center w-24 no-print">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabel-siswa-body"></tbody>
+                </table>
+            </div>
+        </section>
 
-            if st.button("Simpan Perubahan Data Siswa"):
-                # Validasi Max 35 setelah edit
-                if len(edited_df) <= 35:
-                    st.session_state['siswa_data'][selected_class] = edited_df
-                    st.toast("Data siswa diperbarui!", icon='💾')
-                else:
-                    st.error("Gagal simpan: Data melebihi 35 siswa. Hapus beberapa baris.")
+        <section id="tab-jurnal" class="tab-content bg-white p-6 rounded-2xl shadow-lg border-t-8 border-purple-500">
+            <h2 class="text-2xl font-bold text-purple-700 mb-6">Jurnal Mengajar Guru</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 no-print bg-purple-50 p-4 rounded-xl">
+                <input type="date" id="jurnal-tgl" class="p-2 border rounded-lg">
+                <input type="text" id="jurnal-tp" class="p-2 border rounded-lg" placeholder="Tujuan Pembelajaran">
+                <input type="text" id="jurnal-ket" class="p-2 border rounded-lg" placeholder="Keterangan">
+                <button onclick="tambahJurnal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-bold col-span-1 md:col-span-3">Simpan Jurnal</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse">
+                    <thead class="bg-purple-100">
+                        <tr>
+                            <th class="border p-3 w-12">No</th>
+                            <th class="border p-3 w-32">Tanggal</th>
+                            <th class="border p-3">Tujuan Pembelajaran</th>
+                            <th class="border p-3">Keterangan</th>
+                            <th class="border p-3 w-12 no-print"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabel-jurnal-body"></tbody>
+                </table>
+            </div>
+        </section>
 
-    else:
-        st.warning("Belum ada kelas. Silahkan buat kelas terlebih dahulu.")
+        <section id="tab-absensi" class="tab-content bg-white p-6 rounded-2xl shadow-lg border-t-8 border-amber-500">
+            <h2 class="text-2xl font-bold text-amber-700 mb-2">Presensi Kehadiran Siswa</h2>
+            <p class="text-xs text-amber-600 mb-4">* Ketik: <span class="font-bold">A</span> (Alfa), <span class="font-bold">I</span> (Izin), <span class="font-bold">S</span> (Sakit), atau <span class="font-bold">H</span> (Hadir)</p>
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full border-collapse text-xs">
+                    <thead class="bg-amber-100">
+                        <tr>
+                            <th class="border p-2 sticky left-0 bg-amber-100 z-10 w-40">Nama Siswa</th>
+                            <script>for(let i=1; i<=20; i++) document.write(`<th class="border p-1 w-8">${i}</th>`);</script>
+                            <th class="border p-1 bg-amber-200">Rekap</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabel-absensi-body"></tbody>
+                </table>
+            </div>
+        </section>
 
-# === MENU 3: JURNAL GURU ===
-elif menu == "📘 Jurnal Mengajar":
-    st.header("📘 Jurnal Harian Guru")
-    
-    with st.form("form_jurnal"):
-        c1, c2, c3 = st.columns([1, 2, 2])
-        tgl = c1.date_input("Tanggal", datetime.date.today())
-        kls_jurnal = c2.selectbox("Kelas", st.session_state['kelas_list']) if st.session_state['kelas_list'] else c2.text_input("Kelas (Manual)")
-        tujuan = c3.text_area("Tujuan Pembelajaran")
-        ket = st.text_input("Keterangan")
-        
-        if st.form_submit_button("Simpan Jurnal"):
-            nomor = len(st.session_state['jurnal_guru']) + 1
-            new_jurnal = pd.DataFrame({
-                'No': [nomor],
-                'Tanggal': [tgl],
-                'Kelas': [kls_jurnal],
-                'Tujuan Pembelajaran': [tujuan],
-                'Keterangan': [ket]
-            })
-            st.session_state['jurnal_guru'] = pd.concat([st.session_state['jurnal_guru'], new_jurnal], ignore_index=True)
-            st.toast("Jurnal tersimpan!", icon='✅')
+        <section id="tab-nilai" class="tab-content bg-white p-6 rounded-2xl shadow-lg border-t-8 border-rose-500">
+            <h2 class="text-2xl font-bold text-rose-700 mb-4">Daftar Nilai Siswa</h2>
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full border-collapse text-xs">
+                    <thead class="bg-rose-100">
+                        <tr class="text-center">
+                            <th rowspan="2" class="border p-2 sticky left-0 bg-rose-100 z-10 w-40">Nama Siswa</th>
+                            <th colspan="5" class="border p-1">Tugas (T)</th>
+                            <th colspan="3" class="border p-1">UH</th>
+                            <th rowspan="2" class="border p-1 bg-yellow-100">STS</th>
+                            <th rowspan="2" class="border p-1 bg-yellow-100">SAS</th>
+                            <th rowspan="2" class="border p-1 bg-rose-600 text-white">RATA2</th>
+                        </tr>
+                        <tr>
+                            <script>for(let i=1; i<=5; i++) document.write(`<th class="border p-1 w-10">T${i}</th>`);</script>
+                            <script>for(let i=1; i<=3; i++) document.write(`<th class="border p-1 w-10">UH${i}</th>`);</script>
+                        </tr>
+                    </thead>
+                    <tbody id="tabel-nilai-body"></tbody>
+                </table>
+            </div>
+        </section>
 
-    st.write("### Rekapitulasi Jurnal")
-    st.dataframe(st.session_state['jurnal_guru'], use_container_width=True, hide_index=True)
+    </main>
 
-# === MENU 4: DAFTAR HADIR ===
-elif menu == "📅 Daftar Hadir":
-    st.header("📅 Presensi Siswa (20 Pertemuan)")
-    
-    if st.session_state['kelas_list']:
-        cls_abs = st.selectbox("Pilih Kelas:", st.session_state['kelas_list'], key='sel_abs')
-        df_sis = st.session_state['siswa_data'][cls_abs]
-        
-        if not df_sis.empty:
-            key_abs = f"absensi_{cls_abs}"
-            
-            # Setup Kolom: P1..P20 + S, I, A
-            cols = ['Nama Siswa'] + [f'P{i}' for i in range(1, 21)] + ['S', 'I', 'A']
-            
-            # Inisialisasi data presensi jika belum ada
-            if key_abs not in st.session_state:
-                # Buat template data
-                init_data = df_sis.copy()
-                for c in cols[1:]: # Skip Nama
-                    init_data[c] = False if c.startswith('P') else 0 # Checkbox untuk P, Angka untuk S/I/A
-                st.session_state[key_abs] = init_data
-            else:
-                # Sinkronisasi jika ada siswa baru ditambah/dihapus
-                stored_data = st.session_state[key_abs]
-                # Merge logic sederhana: Ambil nama dari master siswa, gabung dengan data presensi yg ada
-                merged = pd.merge(df_sis, stored_data, on='Nama Siswa', how='left')
-                merged = merged.fillna(False) # Isi NaN dengan False/0
-                st.session_state[key_abs] = merged
+    <div id="toast" class="fixed bottom-5 right-5 hidden bg-emerald-600 text-white px-6 py-3 rounded-xl shadow-2xl z-50 transform transition-all animate-bounce">
+        <i class="fas fa-check-circle mr-2"></i> <span id="toast-msg">Data berhasil disimpan!</span>
+    </div>
 
-            st.markdown("**Petunjuk:** Centang kotak untuk **Hadir**. Isi angka manual untuk **S (Sakit), I (Izin), A (Alpa)**.")
-            
-            # Konfigurasi Kolom agar rapi
-            col_config = {
-                "Nama Siswa": st.column_config.TextColumn("Nama Siswa", disabled=True, width="medium"),
+    <div class="print-only hidden p-8">
+        <div class="text-center border-b-4 border-double border-black pb-4 mb-6">
+            <h1 class="text-2xl font-bold">LAPORAN HASIL ADMINISTRASI GURU</h1>
+            <h2 class="text-xl font-bold uppercase" id="print-sekolah">UPT SMP NEGERI 1 WATANG PULU</h2>
+            <p id="print-meta" class="mt-2"></p>
+        </div>
+        <div id="print-area"></div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let db = JSON.parse(localStorage.getItem('db_smpn1watangpulu')) || {
+            profil: { nama: '', mapel: '' },
+            kelas: {}, // Format: { 'VIIA': { siswa: [], jurnal: [], absensi: {}, nilai: {} } }
+            activeKelas: ''
+        };
+
+        const toast = document.getElementById('toast');
+        function showToast(msg) {
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        function saveData() {
+            db.profil.nama = document.getElementById('guru-nama').value;
+            db.profil.mapel = document.getElementById('guru-mapel').value;
+            localStorage.setItem('db_smpn1watangpulu', JSON.stringify(db));
+            renderAll();
+        }
+
+        // --- Tabs ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            renderAll();
+        }
+
+        // --- Kelas Logic ---
+        function tambahKelas() {
+            const namaKelas = document.getElementById('input-kelas').value.trim();
+            if (namaKelas && !db.kelas[namaKelas]) {
+                db.kelas[namaKelas] = {
+                    siswa: [],
+                    jurnal: [],
+                    absensi: {},
+                    nilai: {}
+                };
+                db.activeKelas = namaKelas;
+                document.getElementById('input-kelas').value = '';
+                saveData();
+                showToast("Kelas " + namaKelas + " ditambahkan!");
             }
-            # Kecilkan kolom P1-P20
-            for i in range(1, 21):
-                col_config[f'P{i}'] = st.column_config.CheckboxColumn(f"{i}", width="small")
-            
-            edited_abs = st.data_editor(
-                st.session_state[key_abs],
-                column_config=col_config,
-                hide_index=True,
-                use_container_width=True
-            )
-            
-            if st.button("💾 Simpan Presensi"):
-                st.session_state[key_abs] = edited_abs
-                st.toast("Presensi berhasil disimpan!", icon='✅')
-        else:
-            st.warning("Belum ada siswa di kelas ini.")
-    else:
-        st.error("Buat kelas dulu di menu Data Siswa.")
+        }
 
-# === MENU 5: DAFTAR NILAI ===
-elif menu == "📊 Daftar Nilai":
-    st.header("📊 Input & Rekap Nilai")
-    st.markdown("**(5 Tugas, 3 Ulangan Harian, 1 STS, 1 SAS)**")
-    
-    if st.session_state['kelas_list']:
-        cls_nil = st.selectbox("Pilih Kelas:", st.session_state['kelas_list'], key='sel_nil')
-        df_sis = st.session_state['siswa_data'][cls_nil]
-        
-        if not df_sis.empty:
-            key_nil = f"nilai_{cls_nil}"
-            
-            # Struktur Kolom
-            cols_tugas = [f'T{i}' for i in range(1, 6)]
-            cols_uh = [f'UH{i}' for i in range(1, 4)]
-            cols_ujian = ['STS', 'SAS']
-            cols_all_scores = cols_tugas + cols_uh + cols_ujian
-            
-            if key_nil not in st.session_state:
-                init_nil = df_sis.copy()
-                for c in cols_all_scores:
-                    init_nil[c] = 0.0
-                init_nil['Nilai Akhir'] = 0.0
-                st.session_state[key_nil] = init_nil
-            else:
-                 # Sinkronisasi nama siswa
-                stored_nil = st.session_state[key_nil]
-                merged = pd.merge(df_sis, stored_nil, on='Nama Siswa', how='left').fillna(0)
-                st.session_state[key_nil] = merged
-            
-            # Tampilan Data Editor
-            st.markdown("Silahkan isi nilai **0 - 100**.")
-            
-            edited_nil = st.data_editor(
-                st.session_state[key_nil],
-                column_config={
-                    "Nama Siswa": st.column_config.TextColumn("Nama", disabled=True),
-                    "Nilai Akhir": st.column_config.NumberColumn("Akhir", format="%.2f", disabled=True)
-                },
-                hide_index=True,
-                use_container_width=True
-            )
-            
-            col_act1, col_act2 = st.columns([1, 4])
-            if col_act1.button("🧮 Hitung & Simpan"):
-                # Konversi ke angka
-                for c in cols_all_scores:
-                    edited_nil[c] = pd.to_numeric(edited_nil[c], errors='coerce').fillna(0)
+        function gantiKelasActive(val) {
+            db.activeKelas = val;
+            saveData();
+        }
+
+        // --- Siswa Logic ---
+        function tambahSiswaManual() {
+            if(!db.activeKelas) return alert("Pilih kelas terlebih dahulu!");
+            const nama = document.getElementById('input-nama-siswa').value.trim();
+            const listSiswa = db.kelas[db.activeKelas].siswa;
+            if(nama && listSiswa.length < 35) {
+                listSiswa.push(nama);
+                document.getElementById('input-nama-siswa').value = '';
+                saveData();
+                showToast("Siswa ditambahkan!");
+            } else if (listSiswa.length >= 35) {
+                alert("Maksimal 35 siswa!");
+            }
+        }
+
+        function importCSV(input) {
+            if(!db.activeKelas) return alert("Pilih kelas terlebih dahulu!");
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const rows = text.split('\n');
+                rows.forEach(row => {
+                    const nama = row.trim();
+                    if(nama && db.kelas[db.activeKelas].siswa.length < 35) {
+                        db.kelas[db.activeKelas].siswa.push(nama);
+                    }
+                });
+                saveData();
+                showToast("Import CSV Berhasil!");
+            };
+            reader.readAsText(file);
+        }
+
+        function hapusSiswa(index) {
+            if(confirm("Hapus siswa ini?")) {
+                db.kelas[db.activeKelas].siswa.splice(index, 1);
+                saveData();
+            }
+        }
+
+        function hapusSemuaSiswa() {
+            if(confirm("Hapus semua siswa di kelas ini?")) {
+                db.kelas[db.activeKelas].siswa = [];
+                saveData();
+            }
+        }
+
+        // --- Jurnal Logic ---
+        function tambahJurnal() {
+            if(!db.activeKelas) return alert("Pilih kelas dulu!");
+            const tgl = document.getElementById('jurnal-tgl').value;
+            const tp = document.getElementById('jurnal-tp').value;
+            const ket = document.getElementById('jurnal-ket').value;
+            if(tgl && tp) {
+                db.kelas[db.activeKelas].jurnal.push({ tgl, tp, ket });
+                saveData();
+                showToast("Jurnal tersimpan!");
+            }
+        }
+
+        // --- Render Functions ---
+        function renderAll() {
+            // Profil
+            document.getElementById('guru-nama').value = db.profil.nama || '';
+            document.getElementById('guru-mapel').value = db.profil.mapel || '';
+
+            // Dropdown Kelas
+            const selectKelas = document.getElementById('select-kelas');
+            selectKelas.innerHTML = "";
+            Object.keys(db.kelas).forEach(k => {
+                const opt = document.createElement('option');
+                opt.value = k;
+                opt.innerText = k;
+                if(k === db.activeKelas) opt.selected = true;
+                selectKelas.appendChild(opt);
+            });
+
+            if(!db.activeKelas) return;
+
+            const dataKelas = db.kelas[db.activeKelas];
+
+            // Render Tabel Siswa
+            const tBodySiswa = document.getElementById('tabel-siswa-body');
+            tBodySiswa.innerHTML = "";
+            dataKelas.siswa.forEach((s, i) => {
+                tBodySiswa.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b">
+                        <td class="p-3 border">${i+1}</td>
+                        <td class="p-3 border font-semibold">${s}</td>
+                        <td class="p-3 border text-center no-print">
+                            <button onclick="hapusSiswa(${i})" class="text-rose-500 hover:scale-110 transition"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
+
+            // Render Tabel Jurnal
+            const tBodyJurnal = document.getElementById('tabel-jurnal-body');
+            tBodyJurnal.innerHTML = "";
+            dataKelas.jurnal.forEach((j, i) => {
+                tBodyJurnal.innerHTML += `
+                    <tr class="border-b">
+                        <td class="p-2 border text-center">${i+1}</td>
+                        <td class="p-2 border">${j.tgl}</td>
+                        <td class="p-2 border">${j.tp}</td>
+                        <td class="p-2 border italic">${j.ket}</td>
+                        <td class="p-2 border no-print">
+                            <button onclick="db.kelas[db.activeKelas].jurnal.splice(${i},1); saveData();" class="text-rose-400">X</button>
+                        </td>
+                    </tr>`;
+            });
+
+            // Render Absensi
+            const tBodyAbsen = document.getElementById('tabel-absensi-body');
+            tBodyAbsen.innerHTML = "";
+            dataKelas.siswa.forEach((s) => {
+                let inputs = "";
+                let count = {A:0, I:0, S:0};
+                for(let i=1; i<=20; i++) {
+                    const key = `absen-${s}-${i}`;
+                    const val = dataKelas.absensi[key] || '';
+                    if(val === 'A') count.A++;
+                    if(val === 'I') count.I++;
+                    if(val === 'S') count.S++;
+                    inputs += `<td class="border p-0"><input type="text" maxlength="1" onchange="updateAbsensi('${s}', ${i}, this.value)" class="w-full h-8 text-center uppercase outline-none focus:bg-amber-50" value="${val}"></td>`;
+                }
+                tBodyAbsen.innerHTML += `
+                    <tr>
+                        <td class="border p-2 sticky left-0 bg-white font-medium">${s}</td>
+                        ${inputs}
+                        <td class="border p-1 bg-amber-50 text-[10px] text-center">A:${count.A} I:${count.I} S:${count.S}</td>
+                    </tr>`;
+            });
+
+            // Render Nilai
+            const tBodyNilai = document.getElementById('tabel-nilai-body');
+            tBodyNilai.innerHTML = "";
+            dataKelas.siswa.forEach((s) => {
+                const n = dataKelas.nilai[s] || { t:[0,0,0,0,0], uh:[0,0,0], sts:0, sas:0 };
+                let tCols = "";
+                let uhCols = "";
+                n.t.forEach((val, i) => tCols += `<td class="border p-0"><input type="number" onchange="updateNilai('${s}', 't', ${i}, this.value)" class="w-full h-8 text-center outline-none" value="${val}"></td>`);
+                n.uh.forEach((val, i) => uhCols += `<td class="border p-0"><input type="number" onchange="updateNilai('${s}', 'uh', ${i}, this.value)" class="w-full h-8 text-center outline-none" value="${val}"></td>`);
                 
-                # RUMUS REKAP NILAI (Bisa disesuaikan)
-                # Rata-rata Tugas (20%) + Rata-rata UH (30%) + STS (20%) + SAS (30%)
-                avg_tgs = edited_nil[cols_tugas].mean(axis=1)
-                avg_uh = edited_nil[cols_uh].mean(axis=1)
-                
-                # Bobot Contoh: Tugas 20%, UH 30%, STS 20%, SAS 30%
-                # Rumus Sederhana Rata-rata Total:
-                nilai_akhir = (avg_tgs + avg_uh + edited_nil['STS'] + edited_nil['SAS']) / 4
-                
-                edited_nil['Nilai Akhir'] = nilai_akhir.round(2)
-                
-                st.session_state[key_nil] = edited_nil
-                st.toast("Nilai berhasil dihitung dan disimpan!", icon='✅')
-                st.balloons() # Efek visual menarik
-                st.rerun()
+                // Kalkulasi Rata-rata
+                const totalNilai = [...n.t, ...n.uh, n.sts, n.sas].reduce((a, b) => Number(a) + Number(b), 0);
+                const rata = (totalNilai / 10).toFixed(1);
 
-# === MENU 6: CETAK LAPORAN ===
-elif menu == "🖨️ Cetak Laporan":
-    st.header("🖨️ Cetak / Download Laporan")
-    st.info("Pilih data yang ingin dicetak dalam format Excel.")
+                tBodyNilai.innerHTML += `
+                    <tr>
+                        <td class="border p-2 sticky left-0 bg-white font-medium">${s}</td>
+                        ${tCols} ${uhCols}
+                        <td class="border p-0 bg-yellow-50"><input type="number" onchange="updateNilai('${s}', 'sts', 0, this.value)" class="w-full h-8 text-center outline-none bg-transparent" value="${n.sts}"></td>
+                        <td class="border p-0 bg-yellow-50"><input type="number" onchange="updateNilai('${s}', 'sas', 0, this.value)" class="w-full h-8 text-center outline-none bg-transparent" value="${n.sas}"></td>
+                        <td class="border p-2 text-center font-bold bg-rose-50 text-rose-700">${rata}</td>
+                    </tr>`;
+            });
+        }
 
-    # Fungsi untuk convert DF ke Excel
-    def to_excel(df):
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Sheet1')
-        return output.getvalue()
+        function updateAbsensi(siswa, pertemuan, val) {
+            db.kelas[db.activeKelas].absensi[`absen-${siswa}-${pertemuan}`] = val.toUpperCase();
+            saveData();
+            showToast("Absensi diperbarui");
+        }
 
-    c1, c2 = st.columns(2)
-    
-    with c1:
-        st.subheader("1. Jurnal Guru")
-        if not st.session_state['jurnal_guru'].empty:
-            st.download_button(
-                label="⬇️ Download Jurnal (.xlsx)",
-                data=to_excel(st.session_state['jurnal_guru']),
-                file_name="Jurnal_Guru_SMPN1_WatangPulu.xlsx",
-                mime="application/vnd.ms-excel"
-            )
-        else:
-            st.caption("Data Jurnal Kosong")
+        function updateNilai(siswa, tipe, idx, val) {
+            if(!db.kelas[db.activeKelas].nilai[siswa]) {
+                db.kelas[db.activeKelas].nilai[siswa] = { t:[0,0,0,0,0], uh:[0,0,0], sts:0, sas:0 };
+            }
+            const node = db.kelas[db.activeKelas].nilai[siswa];
+            if(tipe === 't' || tipe === 'uh') node[tipe][idx] = val;
+            else node[tipe] = val;
+            saveData();
+            showToast("Nilai diperbarui");
+        }
+
+        // --- Print Logic ---
+        function preparePrint() {
+            const printMeta = document.getElementById('print-meta');
+            printMeta.innerText = `Guru: ${db.profil.nama} | Mata Pelajaran: ${db.profil.mapel} | Kelas: ${db.activeKelas}`;
             
-    with c2:
-        st.subheader("2. Laporan Kelas (Nilai & Absen)")
-        if st.session_state['kelas_list']:
-            cls_print = st.selectbox("Pilih Kelas:", st.session_state['kelas_list'], key='prt_cls')
+            // Gabungkan tabel-tabel penting ke print-area
+            const activeTabId = document.querySelector('.tab-content.active').id;
+            const content = document.querySelector(`#${activeTabId} table`).cloneNode(true);
             
-            # Tombol Download Nilai
-            key_n = f"nilai_{cls_print}"
-            if key_n in st.session_state:
-                st.download_button(
-                    label=f"⬇️ Download Nilai {cls_print}",
-                    data=to_excel(st.session_state[key_n]),
-                    file_name=f"Nilai_{cls_print}.xlsx"
-                )
+            // Hilangkan kolom aksi di hasil print
+            content.querySelectorAll('.no-print').forEach(el => el.remove());
             
-            # Tombol Download Absen
-            key_a = f"absensi_{cls_print}"
-            if key_a in st.session_state:
-                 st.download_button(
-                    label=f"⬇️ Download Presensi {cls_print}",
-                    data=to_excel(st.session_state[key_a]),
-                    file_name=f"Presensi_{cls_print}.xlsx"
-                )
-        else:
-            st.caption("Belum ada kelas.")
+            const area = document.getElementById('print-area');
+            area.innerHTML = "";
+            area.appendChild(content);
+            
+            window.print();
+        }
 
-st.markdown("---")
+        // --- Init ---
+        document.getElementById('currentDate').innerText = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        renderAll();
+
+    </script>
+</body>
+</html>
